@@ -48,10 +48,6 @@ public class KleinanzeigeApiClient {
         this.baseUrl = baseUrl.replaceAll("/$", "");
     }
 
-    // -------------------------------------------------------------------------
-    // Public API
-    // -------------------------------------------------------------------------
-
     /**
      * Searches ads and returns lightweight {@link AdResult} objects.
      * Sorting happens on the caller side.
@@ -121,7 +117,6 @@ public class KleinanzeigeApiClient {
             if (!el.isJsonObject()) continue;
             JsonObject entry = el.getAsJsonObject();
             AdResult r = new AdResult();
-            // listing fields
             if (entry.has("listing") && entry.get("listing").isJsonObject()) {
                 JsonObject listing = entry.getAsJsonObject("listing");
                 r.adId = string(listing, "adid");
@@ -131,7 +126,6 @@ public class KleinanzeigeApiClient {
                 r.description = string(listing, "description");
                 r.url = string(listing, "url");
             }
-            // detail fields
             if (entry.has("detail") && entry.get("detail").isJsonObject()) {
                 JsonObject detail = entry.getAsJsonObject("detail");
                 if (detail.has("price") && detail.get("price").isJsonObject()) {
@@ -156,10 +150,6 @@ public class KleinanzeigeApiClient {
         }
         return results;
     }
-
-    // -------------------------------------------------------------------------
-    // Internals
-    // -------------------------------------------------------------------------
 
     private List<AdResult> parseAdItems(JsonObject body) {
         List<AdResult> results = new ArrayList<>();
@@ -242,7 +232,7 @@ public class KleinanzeigeApiClient {
     static double parseAmount(String raw) {
         if (raw == null || raw.isBlank()) return Double.MAX_VALUE;
         String cleaned = raw.replaceAll("[^0-9,.]", "").replace(",", ".");
-        if (cleaned.isEmpty()) return Double.MAX_VALUE; // non-numeric (VB, free, etc.)
+        if (cleaned.isEmpty()) return Double.MAX_VALUE;
         try {
             return Double.parseDouble(cleaned);
         } catch (NumberFormatException e) {

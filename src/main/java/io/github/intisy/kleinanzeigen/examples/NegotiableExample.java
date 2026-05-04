@@ -6,7 +6,7 @@ package io.github.intisy.kleinanzeigen.examples;
 public class NegotiableExample {
     public static void main(String[] args) {
         String product = args.length > 0 ? args[0] : "laptop";
-        KleinanzeigeExamples ex = new KleinanzeigeExamples();
-        ex.negotiable(product, 100);
+        try (KleinanzeigeApiClient client = new KleinanzeigeApiClient()) { KleinanzeigeExamples ex = new KleinanzeigeExamples(client);
+        ex.negotiable(product, 100); }
     }
 }

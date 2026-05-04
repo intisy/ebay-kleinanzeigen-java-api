@@ -31,7 +31,8 @@ public class KleinanzeigeApiClient implements AutoCloseable {
      */
     public KleinanzeigeApiClient() {
         // Since we aren't running inside Spring Boot, we instantiate the engine directly
-        this.engine = new PlaywrightScraperEngine();
+        // Providing 5 workers which is enough for the examples
+        this.engine = new PlaywrightScraperEngine(5);
         // and manually call its lifecycle init method
         try {
             this.engine.start();

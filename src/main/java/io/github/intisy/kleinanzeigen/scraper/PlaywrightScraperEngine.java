@@ -23,10 +23,19 @@ public class PlaywrightScraperEngine {
     private static final Logger log = LoggerFactory.getLogger(PlaywrightScraperEngine.class);
 
     @Value("${kleinanzeigen.browser.max-concurrent:10}")
-    private int maxConcurrent;
+    private int maxConcurrent = 10; // Default to 10 for direct Java instantiation
 
     private final List<PlaywrightWorker> workers = new ArrayList<>();
     private final AtomicInteger roundRobin = new AtomicInteger(0);
+
+    /** Spring default constructor */
+    public PlaywrightScraperEngine() {
+    }
+
+    /** Direct Java constructor */
+    public PlaywrightScraperEngine(int maxConcurrent) {
+        this.maxConcurrent = maxConcurrent;
+    }
 
     /**
      * Starts all Playwright workers. Called automatically by Spring after construction.

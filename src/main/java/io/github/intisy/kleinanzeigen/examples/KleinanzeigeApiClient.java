@@ -1,51 +1,43 @@
 package io.github.intisy.kleinanzeigen.examples;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import io.github.intisy.kleinanzeigen.command.GetAdDetailCmd;
+import io.github.intisy.kleinanzeigen.command.SearchAdsCmd;
+import io.github.intisy.kleinanzeigen.model.AdDetail;
+import io.github.intisy.kleinanzeigen.model.AdItem;
+import io.github.intisy.kleinanzeigen.model.DetailResponse;
+import io.github.intisy.kleinanzeigen.model.SearchResponse;
+import io.github.intisy.kleinanzeigen.scraper.PlaywrightScraperEngine;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Lightweight HTTP client for the Kleinanzeigen REST API.
+ * Direct Java client for the Kleinanzeigen scraper.
  *
- * <p>Wraps the three main endpoints and returns parsed {@link AdResult} objects
- * ready for sorting and filtering in the example programs.
+ * <p>Unlike the previous HTTP client, this bypasses the local port entirely
+ * and invokes the scraper engine directly in the same JVM.
  *
- * <p>Start the API server first:
- * <pre>
- *   ./gradlew bootRun
- * </pre>
- * then run any example in this package.
+ * <p>Implements {@link AutoCloseable} so you can run it in a try-with-resources
+ * block to ensure the Playwright browsers are properly shut down.
  *
  * @author Finn Birich
  */
-public class KleinanzeigeApiClient {
+public class KleinanzeigeApiClient implements AutoCloseable {
 
-    private final String baseUrl;
-    private final Gson gson = new Gson();
+    private final PlaywrightScraperEngine engine;
 
     /**
-     * Creates a client targeting {@code http://localhost:8080}.
+     * Initializes the underlying Playwright engine.
      */
     public KleinanzeigeApiClient() {
-        this("http://localhost:8080");
-    }
-
-    /**
-     * Creates a client targeting a custom base URL.
-     *
-     * @param baseUrl e.g. {@code "http://localhost:8080"}
-     */
-    public KleinanzeigeApiClient(String baseUrl) {
-        this.baseUrl = baseUrl.replaceAll("/$", "");
+        // Since we aren't running inside Spring Boot, we instantiate the engine directly
+        this.engine = new PlaywrightScraperEngine();
+        // and manually call its lifecycle init method
+        try {
+            this.engine.start();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to start Playwright engine", e);
+        }
     }
 
     /**
@@ -53,12 +45,25 @@ public class KleinanzeigeApiClient {
      * Sorting happens on the caller side.
      *
      * @param params search parameters
-     * @return list of results (may be empty if server returns 0 hits)
+     * @return list of results
      */
     public List<AdResult> search(SearchParams params) {
-        String url = buildSearchUrl("/inserate", params);
-        JsonObject body = get(url);
-        return parseAdItems(body);
+        SearchResponse response = new SearchAdsCmd(engine)
+                .withQuery(params.query)
+                .withLocation(params.location)
+                .withRadius(params.radius > 0 ? params.radius : null)
+                .withMinPrice(params.minPrice > 0 ? params.minPrice : null)
+                .withMaxPrice(params.maxPrice > 0 ? params.maxPrice : null)
+                .withPageCount(params.pageCount > 0 ? params.pageCount : 1)
+                .exec();
+
+        List<AdResult> results = new ArrayList<>();
+        if (response.getData() != null) {
+            for (AdItem item : response.getData()) {
+                results.add(mapAdItem(item));
+            }
+        }
+        return results;
     }
 
     /**
@@ -68,163 +73,79 @@ public class KleinanzeigeApiClient {
      * @return result with all detail fields populated, or {@code null} on error
      */
     public AdResult detail(String adId) {
-        JsonObject body = get(baseUrl + "/inserat/" + adId);
-        if (body == null || !body.has("data")) return null;
-        JsonObject d = body.getAsJsonObject("data");
+        DetailResponse response = new GetAdDetailCmd(engine, adId).exec();
+        if (response == null || response.getData() == null) return null;
+        
         AdResult r = new AdResult();
         r.adId = adId;
-        r.title = string(d, "title");
-        r.description = string(d, "description");
-        if (d.has("price") && d.get("price").isJsonObject()) {
-            JsonObject p = d.getAsJsonObject("price");
-            r.priceAmount = parseAmount(string(p, "amount"));
-            r.priceRaw = string(p, "amount") + " " + string(p, "currency");
-            r.negotiable = p.has("negotiable") && p.get("negotiable").getAsBoolean();
-        }
-        if (d.has("extra_info") && d.get("extra_info").isJsonObject()) {
-            JsonObject e = d.getAsJsonObject("extra_info");
-            r.createdAt = string(e, "created_at");
-            r.views = parseViews(string(e, "views"));
-        }
-        if (d.has("location") && d.get("location").isJsonObject()) {
-            JsonObject l = d.getAsJsonObject("location");
-            r.city = string(l, "city");
-        }
-        if (d.has("seller") && d.get("seller").isJsonObject()) {
-            JsonObject s = d.getAsJsonObject("seller");
-            r.sellerName = string(s, "name");
-        }
+        mapAdDetail(response.getData(), r);
         return r;
     }
 
     /**
-     * Searches and fetches details for every result in one round trip
-     * (uses the {@code /inserate-detailed} endpoint).
+     * Searches and fetches details for every result in one round trip.
      *
      * @param params search parameters
      * @return list of fully populated results
      */
     public List<AdResult> searchDetailed(SearchParams params) {
-        String url = buildSearchUrl("/inserate-detailed", params);
-        if (params.maxConcurrentDetails > 0) {
-            url += (url.contains("?") ? "&" : "?") + "maxConcurrentDetails=" + params.maxConcurrentDetails;
-        }
-        JsonObject body = get(url);
-        if (body == null || !body.has("data")) return new ArrayList<>();
-        JsonArray arr = body.getAsJsonArray("data");
-        List<AdResult> results = new ArrayList<>();
-        for (JsonElement el : arr) {
-            if (!el.isJsonObject()) continue;
-            JsonObject entry = el.getAsJsonObject();
-            AdResult r = new AdResult();
-            if (entry.has("listing") && entry.get("listing").isJsonObject()) {
-                JsonObject listing = entry.getAsJsonObject("listing");
-                r.adId = string(listing, "adid");
-                r.title = string(listing, "title");
-                r.priceRaw = string(listing, "price");
-                r.priceAmount = parseAmount(r.priceRaw);
-                r.description = string(listing, "description");
-                r.url = string(listing, "url");
+        // 1. Search
+        List<AdResult> results = search(params);
+
+        // 2. Fetch details for each (sequentially in this simple example client, 
+        // to avoid duplicating the complex Semaphore logic from the Controller)
+        for (AdResult r : results) {
+            DetailResponse detailResp = new GetAdDetailCmd(engine, r.adId).exec();
+            if (detailResp != null && detailResp.getData() != null) {
+                mapAdDetail(detailResp.getData(), r);
             }
-            if (entry.has("detail") && entry.get("detail").isJsonObject()) {
-                JsonObject detail = entry.getAsJsonObject("detail");
-                if (detail.has("price") && detail.get("price").isJsonObject()) {
-                    JsonObject p = detail.getAsJsonObject("price");
-                    r.negotiable = p.has("negotiable") && p.get("negotiable").getAsBoolean();
-                }
-                if (detail.has("extra_info") && detail.get("extra_info").isJsonObject()) {
-                    JsonObject e = detail.getAsJsonObject("extra_info");
-                    r.createdAt = string(e, "created_at");
-                    r.views = parseViews(string(e, "views"));
-                }
-                if (detail.has("location") && detail.get("location").isJsonObject()) {
-                    JsonObject l = detail.getAsJsonObject("location");
-                    r.city = string(l, "city");
-                }
-                if (detail.has("seller") && detail.get("seller").isJsonObject()) {
-                    JsonObject s = detail.getAsJsonObject("seller");
-                    r.sellerName = string(s, "name");
-                }
-            }
-            results.add(r);
         }
         return results;
     }
 
-    private List<AdResult> parseAdItems(JsonObject body) {
-        List<AdResult> results = new ArrayList<>();
-        if (body == null || !body.has("data")) return results;
-        JsonArray arr = body.getAsJsonArray("data");
-        for (JsonElement el : arr) {
-            if (!el.isJsonObject()) continue;
-            JsonObject o = el.getAsJsonObject();
-            AdResult r = new AdResult();
-            r.adId = string(o, "adid");
-            r.title = string(o, "title");
-            r.priceRaw = string(o, "price");
-            r.priceAmount = parseAmount(r.priceRaw);
-            r.description = string(o, "description");
-            r.url = string(o, "url");
-            results.add(r);
+    @Override
+    public void close() {
+        if (engine != null) {
+            engine.stop();
         }
-        return results;
     }
 
-    private String buildSearchUrl(String endpoint, SearchParams p) {
-        StringBuilder sb = new StringBuilder(baseUrl).append(endpoint).append("?");
-        boolean first = true;
-        if (p.query != null && !p.query.isEmpty()) {
-            sb.append("query=").append(encode(p.query));
-            first = false;
-        }
-        if (p.location != null && !p.location.isEmpty()) {
-            sb.append(first ? "" : "&").append("location=").append(encode(p.location));
-            first = false;
-        }
-        if (p.radius > 0) {
-            sb.append(first ? "" : "&").append("radius=").append(p.radius);
-            first = false;
-        }
-        if (p.minPrice > 0) {
-            sb.append(first ? "" : "&").append("minPrice=").append(p.minPrice);
-            first = false;
-        }
-        if (p.maxPrice > 0) {
-            sb.append(first ? "" : "&").append("maxPrice=").append(p.maxPrice);
-            first = false;
-        }
-        if (p.pageCount > 1) {
-            sb.append(first ? "" : "&").append("pageCount=").append(p.pageCount);
-        }
-        return sb.toString();
+    // -------------------------------------------------------------------------
+    // Internals
+    // -------------------------------------------------------------------------
+
+    private AdResult mapAdItem(AdItem item) {
+        AdResult r = new AdResult();
+        r.adId = item.getAdid();
+        r.title = item.getTitle();
+        r.priceRaw = item.getPrice();
+        r.priceAmount = parseAmount(r.priceRaw);
+        r.description = item.getDescription();
+        r.url = item.getUrl();
+        return r;
     }
 
-    private JsonObject get(String urlStr) {
-        try {
-            URL url = new URL(urlStr);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(10_000);
-            conn.setReadTimeout(120_000);
-            conn.setRequestProperty("Accept", "application/json");
-
-            int code = conn.getResponseCode();
-            BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(code < 400 ? conn.getInputStream() : conn.getErrorStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) sb.append(line);
-            reader.close();
-            conn.disconnect();
-
-            if (code >= 400) {
-                System.err.println("HTTP " + code + " for " + urlStr + ": " + sb);
-                return null;
-            }
-            return gson.fromJson(sb.toString(), JsonObject.class);
-        } catch (Exception e) {
-            System.err.println("Request failed for " + urlStr + ": " + e.getMessage());
-            return null;
+    private void mapAdDetail(AdDetail d, AdResult r) {
+        if (d.getTitle() != null && !d.getTitle().isEmpty()) {
+            r.title = d.getTitle();
+        }
+        if (d.getDescription() != null && !d.getDescription().isEmpty()) {
+            r.description = d.getDescription();
+        }
+        if (d.getPrice() != null) {
+            r.priceAmount = parseAmount(d.getPrice().getAmount());
+            r.priceRaw = d.getPrice().getAmount() + " " + d.getPrice().getCurrency();
+            r.negotiable = d.getPrice().isNegotiable();
+        }
+        if (d.getExtraInfo() != null) {
+            r.createdAt = d.getExtraInfo().getCreatedAt();
+            r.views = parseViews(d.getExtraInfo().getViews());
+        }
+        if (d.getLocation() != null) {
+            r.city = d.getLocation().getCity();
+        }
+        if (d.getSeller() != null) {
+            r.sellerName = d.getSeller().getName();
         }
     }
 
@@ -249,19 +170,6 @@ public class KleinanzeigeApiClient {
             return Integer.parseInt(cleaned);
         } catch (NumberFormatException e) {
             return 0;
-        }
-    }
-
-    private static String string(JsonObject o, String key) {
-        if (o == null || !o.has(key) || o.get(key).isJsonNull()) return "";
-        return o.get(key).getAsString();
-    }
-
-    private static String encode(String v) {
-        try {
-            return URLEncoder.encode(v, "UTF-8");
-        } catch (Exception e) {
-            return v;
         }
     }
 }

@@ -284,21 +284,24 @@ public class KleinanzeigeExamples {
      */
     public static void main(String[] args) {
         String product = args.length > 0 ? args[0] : "laptop";
-        KleinanzeigeExamples ex = new KleinanzeigeExamples();
 
         System.out.println("=================================================");
         System.out.println("  Kleinanzeigen API Examples — product: " + product);
         System.out.println("=================================================\n");
 
-        ex.cheapest(product, LIMIT);
-        ex.mostExpensive(product, LIMIT);
-        ex.cheapestInRange(product, 50, 300, LIMIT);
-        ex.free(product, LIMIT);
-        ex.nearLocation(product, "Berlin", 50, LIMIT);
-        ex.newest(product, LIMIT);
-        ex.oldest(product, LIMIT);
-        ex.mostViewed(product, LIMIT);
-        ex.negotiable(product, LIMIT);
+        try (KleinanzeigeApiClient client = new KleinanzeigeApiClient()) {
+            KleinanzeigeExamples ex = new KleinanzeigeExamples(client);
+
+            ex.cheapest(product, LIMIT);
+            ex.mostExpensive(product, LIMIT);
+            ex.cheapestInRange(product, 50, 300, LIMIT);
+            ex.free(product, LIMIT);
+            ex.nearLocation(product, "Berlin", 50, LIMIT);
+            ex.newest(product, LIMIT);
+            ex.oldest(product, LIMIT);
+            ex.mostViewed(product, LIMIT);
+            ex.negotiable(product, LIMIT);
+        }
 
         System.out.println("\nAll examples completed.");
     }

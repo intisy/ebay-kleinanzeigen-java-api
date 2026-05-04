@@ -35,8 +35,6 @@ public class AdResult {
     /** Relative URL path of the ad on kleinanzeigen.de. */
     public String url;
 
-    // Detail fields — only populated when using detail() or searchDetailed()
-
     /** ISO-8601-like creation date string, e.g. {@code "2024-03-15"}. */
     public String createdAt;
 

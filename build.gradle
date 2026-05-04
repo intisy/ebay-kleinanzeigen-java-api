@@ -1,0 +1,71 @@
+plugins {
+    id 'java-library'
+    id 'org.springframework.boot' version '2.7.18'
+    id 'io.spring.dependency-management' version '1.0.15.RELEASE'
+}
+
+group = artifact_group
+version = artifact_version
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories {
+    mavenCentral()
+}
+
+configurations.all {
+    exclude group: 'com.fasterxml.jackson.core'
+    exclude group: 'com.fasterxml.jackson.databind'
+    exclude group: 'com.fasterxml.jackson.datatype'
+    exclude group: 'com.fasterxml.jackson.module'
+}
+
+dependencies {
+    // Spring Boot Web (Tomcat, Spring MVC)
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // Gson for JSON serialization (replaces Jackson)
+    implementation 'com.google.code.gson:gson:2.10.1'
+
+    // Playwright Java for headless browser scraping
+    implementation 'com.microsoft.playwright:playwright:1.44.0'
+
+    // Logging
+    implementation 'org.slf4j:slf4j-simple:1.7.36'
+
+    // Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
+}
+
+test {
+    useJUnitPlatform()
+    onlyIf { gradle.startParameter.taskNames.any { it == 'test' || it == ':test' } }
+}
+
+task unitTest(type: Test) {
+    useJUnitPlatform {
+        includeTags 'unit'
+    }
+    description = 'Runs unit tests (no browser required).'
+    group = 'verification'
+}
+
+task integrationTest(type: Test) {
+    useJUnitPlatform {
+        includeTags 'integration'
+    }
+    description = 'Runs integration tests (requires network access to kleinanzeigen.de).'
+    group = 'verification'
+}
+
+task installPlaywright(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.microsoft.playwright.CLI'
+    args = ['install', 'chromium']
+    description = 'Installs Playwright Chromium browser'
+    group = 'setup'
+}

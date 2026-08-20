@@ -1,0 +1,2 @@
+kind: java-library
+description: Java Spring Boot REST API that replicates the eBay Kleinanzeigen scraper, using Playwright for headless browser scraping.

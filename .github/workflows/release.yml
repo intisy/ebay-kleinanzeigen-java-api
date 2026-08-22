@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and release; empty takes the ref the run was started from'
+        required: false
+        type: string
+        default: ''
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    uses: intisy/workflows/.github/workflows/test.yml@main
+    with:
+      ref: ${{ inputs.tag }}
+      java_version: '8'
+      runners: '["ubuntu-latest", "windows-latest"]'
+      gradle_pretest: installPlaywright
+      gradle_test: unitTest
+      gradle_args: --no-daemon
+    secrets:
+      envPAT: ${{ secrets.PAT }}
+
+  publish:
+    needs: test
+    uses: intisy/workflows/.github/workflows/publish.yml@main
+    with:
+      tag: ${{ inputs.tag }}
+      java_version: '8'
+      gradle_build: bootJar
+      gradle_args: --no-daemon
+      release_assets: 'build/libs/*-[0-9]*.jar'
+      generate_release_notes: true
+    secrets:
+      envPAT: ${{ secrets.PAT }}

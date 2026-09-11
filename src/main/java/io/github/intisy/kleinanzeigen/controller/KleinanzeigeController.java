@@ -57,7 +57,7 @@ public class KleinanzeigeController {
     }
 
     /**
-     * Root endpoint — API welcome and endpoint listing.
+     * Root endpoint, API welcome and endpoint listing.
      *
      * @return welcome map
      */
@@ -78,7 +78,7 @@ public class KleinanzeigeController {
      * @param radius     search radius in km (optional)
      * @param minPrice   minimum price filter (optional)
      * @param maxPrice   maximum price filter (optional)
-     * @param pageCount  number of result pages to scrape (1–20, default 1)
+     * @param pageCount  number of result pages to scrape (1 to 20, default 1)
      * @return search results or error response
      */
     @GetMapping("/inserate")
@@ -142,8 +142,8 @@ public class KleinanzeigeController {
      * @param radius                search radius in km (optional)
      * @param minPrice              minimum price filter (optional)
      * @param maxPrice              maximum price filter (optional)
-     * @param pageCount             number of search pages to scrape (1–3, default 1)
-     * @param maxConcurrentDetails  max parallel detail fetches (1–10, default 5)
+     * @param pageCount             number of search pages to scrape (1 to 3, default 1)
+     * @param maxConcurrentDetails  max parallel detail fetches (1 to 10, default 5)
      * @return combined search + detail results or error response
      */
     @GetMapping("/inserate-detailed")

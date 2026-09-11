@@ -106,7 +106,7 @@ public class KleinanzeigeControllerTest {
     void testInseratInvalidId() {
         ResponseEntity<String> response = restTemplate.getForEntity(
                 baseUrl() + "/inserat/invalid-nonexistent-ad-id-xyz", String.class);
-        // Either 500 (scraping failed) with error JSON or 200 — not a 400/404 routing error
+        // Either 500 (scraping failed) with error JSON or 200, not a 400/404 routing error
         assertNotNull(response.getBody());
         // Body should be JSON
         assertTrue(response.getBody().startsWith("{") || response.getBody().startsWith("["),
@@ -135,7 +135,7 @@ public class KleinanzeigeControllerTest {
 
         for (CompletableFuture<Integer> future : futures) {
             int statusCode = future.get();
-            // All responses should be either 200 (success) or 500 (structured error) — never an unhandled crash
+            // All responses should be either 200 (success) or 500 (structured error), never an unhandled crash
             assertTrue(statusCode == 200 || statusCode == 500,
                     "Expected 200 or 500, got: " + statusCode);
         }

@@ -151,7 +151,7 @@ public class SearchAdsCmd {
                                 page.waitForSelector(".ad-listitem", new Page.WaitForSelectorOptions()
                                         .setTimeout(5000));
                             } catch (Exception ignored) {
-                                // No results on this page — continue and extract what we can
+                                // No results on this page, so continue and extract what we can
                             }
                             return KleinanzeigeExtractor.extractAdItems(page);
                         } finally {

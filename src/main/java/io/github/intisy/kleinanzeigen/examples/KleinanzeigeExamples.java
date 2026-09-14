@@ -61,7 +61,7 @@ public class KleinanzeigeExamples {
     /**
      * Top N <em>oldest</em> listings still active on the platform.
      *
-     * <p>Same as {@link #newest} but sorted ascending — oldest first.
+     * <p>Same as {@link #newest} but sorted ascending - oldest first.
      *
      * @param product search keyword
      * @param limit   maximum number of results to return
@@ -85,7 +85,7 @@ public class KleinanzeigeExamples {
      * Top N <em>cheapest</em> listings for a product.
      *
      * <p>Uses {@code /inserate} (no detail fetch needed) and sorts ascending
-     * by parsed numeric price. Ads without a numeric price (VB, Zu verschenken, …)
+     * by parsed numeric price. Ads without a numeric price (VB, Zu verschenken, ...)
      * are placed last.
      *
      * @param product search keyword
@@ -128,7 +128,7 @@ public class KleinanzeigeExamples {
     }
 
     /**
-     * Top N <em>most viewed</em> listings — a rough proxy for popularity.
+     * Top N <em>most viewed</em> listings - a rough proxy for popularity.
      *
      * <p>View counts come from the detail page, so this uses
      * {@code /inserate-detailed}.
@@ -171,7 +171,7 @@ public class KleinanzeigeExamples {
         results.sort(Comparator.comparingDouble(r -> r.priceAmount));
 
         List<AdResult> top = limit(results, limit);
-        print(String.format("Top %d CHEAPEST \"%s\" listings (€%d–€%d)",
+        print(String.format("Top %d CHEAPEST \"%s\" listings (€%d to €%d)",
                 top.size(), product, minPrice, maxPrice), top, true);
         return top;
     }
@@ -273,7 +273,7 @@ public class KleinanzeigeExamples {
         System.out.printf("  Views      : %d%n", r.views);
         System.out.printf("  Description: %s%n",
                 r.description != null && r.description.length() > 120
-                        ? r.description.substring(0, 120) + "…" : r.description);
+                        ? r.description.substring(0, 120) + "..." : r.description);
         return r;
     }
 
@@ -286,7 +286,7 @@ public class KleinanzeigeExamples {
         String product = args.length > 0 ? args[0] : "laptop";
 
         System.out.println("=================================================");
-        System.out.println("  Kleinanzeigen API Examples — product: " + product);
+        System.out.println("  Kleinanzeigen API Examples - product: " + product);
         System.out.println("=================================================\n");
 
         try (KleinanzeigeApiClient client = new KleinanzeigeApiClient()) {
@@ -318,12 +318,12 @@ public class KleinanzeigeExamples {
         int rank = 1;
         for (AdResult r : results) {
             String col2 = showPrice
-                    ? (r.priceRaw != null ? r.priceRaw : "—")
+                    ? (r.priceRaw != null ? r.priceRaw : "-")
                     : (r.createdAt != null && !r.createdAt.isEmpty()
                             ? r.createdAt + " (" + r.views + " views)"
-                            : "—");
+                            : "-");
             String title = r.title != null && r.title.length() > 55
-                    ? r.title.substring(0, 52) + "…" : r.title;
+                    ? r.title.substring(0, 52) + "..." : r.title;
             System.out.printf("%-6d  %-55s  %s%n", rank++, title, col2);
         }
         System.out.println("-".repeat(80));
